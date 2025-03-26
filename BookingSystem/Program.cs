@@ -109,22 +109,80 @@ namespace BookingSystem
         static void RunWebApp()
         {
             var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://localhost:5000");
+
+            // 🔥 Aktiver CORS
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
             var app = builder.Build();
+            app.UseCors(); // <-- vigtigt
 
             var connectionString = "Server=ADEMAKAT\\SQLEXPRESS;Database=BookingDB;Trusted_Connection=True;Encrypt=False;";
             IBookingRepository bookingRepository = new BookingRepository(connectionString);
             EmailService emailService = new EmailService();
 
             app.MapGet("/", () => "Velkommen til Booking System (Web Version)");
-            app.MapGet("/bookings", () => bookingRepository.GetAllBookings());
-            app.MapPost("/create", (Booking newBooking) => { bookingRepository.AddBooking(newBooking); return "Booking tilføjet!"; });
-            app.MapPut("/update", (Booking updatedBooking) => { bookingRepository.UpdateBooking(updatedBooking); return "Booking opdateret succesfuldt!"; });
-            app.MapDelete("/delete/{id}", (int id) => { bookingRepository.DeleteBooking(id); return "Booking slettet succesfuldt!"; });
-            app.MapPost("/send-notification", (string recipientEmail, string subject, string message) => {
+
+            // ✅ Hent alle bookinger
+            app.MapGet("/api/bookings", () =>
+            {
+                var bookings = bookingRepository.GetAllBookings();
+                return Results.Json(bookings);
+            });
+
+            // ✅ Hent alle kunder
+            app.MapGet("/api/customers", () =>
+            {
+                var customers = bookingRepository.GetAllCustomers();
+                return Results.Json(customers);
+            });
+
+            // ✅ Opret ny kunde
+            app.MapPost("/api/customers", (CustomerData customer) =>
+            {
+                var id = bookingRepository.CreateCustomer(customer.FirstName, customer.LastName, customer.Email);
+                return Results.Ok(new { CustomerID = id });
+            });
+
+            // ✅ Opret ny booking
+            app.MapPost("/create", (Booking newBooking) =>
+            {
+                bookingRepository.AddBooking(newBooking);
+                return "Booking tilføjet!";
+            });
+
+            // ✅ Opdater booking
+            app.MapPut("/update", (Booking updatedBooking) =>
+            {
+                bookingRepository.UpdateBooking(updatedBooking);
+                return "Booking opdateret succesfuldt!";
+            });
+
+            // ✅ Slet booking
+            app.MapDelete("/delete/{id}", (int id) =>
+            {
+                bookingRepository.DeleteBooking(id);
+                return "Booking slettet succesfuldt!";
+            });
+
+            // ✅ Send notifikation
+            app.MapPost("/send-notification", (string recipientEmail, string subject, string message) =>
+            {
                 emailService.SendNotification(recipientEmail, subject, message);
                 return "Notifikation sendt!";
             });
-            app.MapGet("/report", () => {
+
+            // ✅ Generér rapport
+            app.MapGet("/report", () =>
+            {
                 string filePath = "BookingRapport.csv";
                 bookingRepository.GenerateReport(filePath);
                 return $"Rapport genereret: {filePath}";
@@ -132,6 +190,12 @@ namespace BookingSystem
 
             app.Run();
         }
+
+        // DTO til kunde-oprettelse fra web
+        public record CustomerData(string FirstName, string LastName, string Email);
+
+
+
 
         // --------- Booking Funktioner (Samme som tidligere) ---------
         static void CreateBooking(IBookingRepository bookingRepository)
