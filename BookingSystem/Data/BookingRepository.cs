@@ -18,8 +18,7 @@ namespace BookingSystem.Data
         {
             _connectionString = connectionString;
         }
-
-        // Ny metode til at generere PDF-rapport
+                
         public void GeneratePdfReport(string filePath)
         {
             QuestPDF.Settings.License = LicenseType.Community;
@@ -30,8 +29,7 @@ namespace BookingSystem.Data
                 Console.WriteLine("Ingen bookinger fundet. Rapporten er ikke genereret.");
                 return;
             }
-
-            // Brug QuestPDF til at oprette PDF'en
+                        
             Document.Create(container =>
             {
                 container.Page(page =>
@@ -99,7 +97,7 @@ namespace BookingSystem.Data
             using var connection = new SqlConnection(_connectionString);
             connection.Open();
 
-            string query = "SELECT BookingID, Resource, Date, CustomerID FROM Bookings";  // Tilføj CustomerID her
+            string query = "SELECT BookingID, Resource, Date, CustomerID FROM Bookings";
             using var command = new SqlCommand(query, connection);
             using var reader = command.ExecuteReader();
 
@@ -122,7 +120,7 @@ namespace BookingSystem.Data
             using var connection = new SqlConnection(_connectionString);
             connection.Open();
 
-            string query = "SELECT BookingID, Resource, Date, CustomerID FROM Bookings WHERE BookingID = @BookingID";  // Tilføj 'CustomerID' i SELECT
+            string query = "SELECT BookingID, Resource, Date, CustomerID FROM Bookings WHERE BookingID = @BookingID";
             using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@BookingID", bookingId);
 
@@ -174,7 +172,15 @@ namespace BookingSystem.Data
             using var connection = new SqlConnection(_connectionString);
             connection.Open();
 
-            string query = "SELECT BookingID, Resource, Date, CustomerID FROM Bookings WHERE Resource LIKE @SearchTerm"; // Tilføjet 'CustomerID'
+            string query = @"
+        SELECT BookingID, Resource, Date, CustomerID
+        FROM Bookings
+        WHERE 
+            (Resource IS NOT NULL AND Resource LIKE @SearchTerm)
+            OR CAST(BookingID AS NVARCHAR) LIKE @SearchTerm
+            OR CAST(CustomerID AS NVARCHAR) LIKE @SearchTerm
+    ";
+
             using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@SearchTerm", $"%{searchTerm}%");
 
@@ -185,12 +191,13 @@ namespace BookingSystem.Data
                     reader.GetInt32(0),    // BookingID
                     reader.GetString(1),   // Resource
                     reader.GetDateTime(2), // Date
-                    reader.GetInt32(3)     // CustomerID (Tilføjet her)
+                    reader.GetInt32(3)     // CustomerID
                 ));
             }
 
             return bookings;
         }
+
 
 
         public void GenerateReport(string filePath)

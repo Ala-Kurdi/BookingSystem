@@ -2,7 +2,6 @@
 
 namespace BookingSystem.Models
 {
-    // Arver fra User
     public class Customer : User
     {
         public int CustomerID { get; set; }
@@ -13,7 +12,6 @@ namespace BookingSystem.Models
             CustomerID = customerId;
         }
 
-        // Implementerer DisplayInfo() fra User
         public override void DisplayInfo()
         {
             Console.WriteLine($"Kunde: {FirstName} {LastName}, Email: {Email}, ID: {CustomerID}");

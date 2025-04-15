@@ -13,9 +13,8 @@ namespace BookingSystem.Data
         void UpdateBooking(Booking booking);
         void DeleteBooking(int bookingId);
         IEnumerable<Booking> SearchBookings(string searchTerm);
-        void GenerateReport(string filePath); // Ny metode til rapportgenerering
+        void GenerateReport(string filePath);
 
-        // Ny metode til at oprette kunder
         int CreateCustomer(string firstName, string lastName, string email);
 
         bool DoesCustomerExist(int  customerId);

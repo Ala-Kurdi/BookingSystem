@@ -12,7 +12,6 @@ namespace BookingSystem
 {
     class Program
     {
-        // Windows API for at gendanne det minimerede vindue
         [DllImport("kernel32.dll")]
         static extern IntPtr GetConsoleWindow();
 
@@ -20,14 +19,11 @@ namespace BookingSystem
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-        const int SW_RESTORE = 9; // Restore command
+        const int SW_RESTORE = 9;
+
         static void Main(string[] args)
         {
-
             QuestPDF.Settings.License = LicenseType.Community;
-
-            IntPtr consoleWindow = GetConsoleWindow();
-            ShowWindow(consoleWindow, SW_RESTORE);  // Sørger for at vinduet ikke starter minimeret
 
             if (args.Length > 0 && args[0].Equals("web", StringComparison.OrdinalIgnoreCase))
             {
@@ -35,6 +31,8 @@ namespace BookingSystem
             }
             else
             {
+                IntPtr consoleWindow = GetConsoleWindow();
+                ShowWindow(consoleWindow, SW_RESTORE);
                 RunConsoleApp();
             }
         }
@@ -47,7 +45,6 @@ namespace BookingSystem
 
             while (true)
             {
-                Console.Clear();
                 Console.WriteLine("=== Booking System ===");
                 Console.WriteLine("1. Opret booking");
                 Console.WriteLine("2. Vis alle bookinger");
@@ -92,7 +89,6 @@ namespace BookingSystem
                     case "9":
                         GeneratePdfReport(bookingRepository);
                         break;
-
                     case "0":
                         Console.WriteLine("Program afsluttes...");
                         return;
@@ -102,7 +98,6 @@ namespace BookingSystem
                 }
 
                 Console.WriteLine("\nTryk på en vilkårlig tast for at fortsætte...");
-                Console.ReadKey();
             }
         }
 
@@ -111,7 +106,10 @@ namespace BookingSystem
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://localhost:5000");
 
-            // 🔥 Aktiver CORS
+            var connectionString = "Server=ADEMAKAT\\SQLEXPRESS;Database=BookingDB;Trusted_Connection=True;Encrypt=False;";
+            builder.Services.AddSingleton<IBookingRepository>(new BookingRepository(connectionString));
+            builder.Services.AddSingleton<EmailService>();
+
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(policy =>
@@ -123,81 +121,71 @@ namespace BookingSystem
             });
 
             var app = builder.Build();
-            app.UseCors(); // <-- vigtigt
 
-            var connectionString = "Server=ADEMAKAT\\SQLEXPRESS;Database=BookingDB;Trusted_Connection=True;Encrypt=False;";
-            IBookingRepository bookingRepository = new BookingRepository(connectionString);
-            EmailService emailService = new EmailService();
+            app.UseRouting();
+            app.UseCors();
 
-            app.MapGet("/", () => "Velkommen til Booking System (Web Version)");
-
-            // ✅ Hent alle bookinger
-            app.MapGet("/api/bookings", () =>
+            app.UseEndpoints(endpoints =>
             {
-                var bookings = bookingRepository.GetAllBookings();
-                return Results.Json(bookings);
-            });
+                endpoints.MapGet("/", () => "Velkommen til Booking System (Web Version)");
 
-            // ✅ Hent alle kunder
-            app.MapGet("/api/customers", () =>
-            {
-                var customers = bookingRepository.GetAllCustomers();
-                return Results.Json(customers);
-            });
+                endpoints.MapGet("/api/bookings", (IBookingRepository bookingRepository) =>
+                {
+                    var bookings = bookingRepository.GetAllBookings();
+                    return Results.Json(bookings);
+                });
 
-            // ✅ Opret ny kunde
-            app.MapPost("/api/customers", (CustomerData customer) =>
-            {
-                var id = bookingRepository.CreateCustomer(customer.FirstName, customer.LastName, customer.Email);
-                return Results.Ok(new { CustomerID = id });
-            });
+                endpoints.MapGet("/api/customers", (IBookingRepository bookingRepository) =>
+                {
+                    var customers = bookingRepository.GetAllCustomers();
+                    return Results.Json(customers);
+                });
 
-            // ✅ Opret ny booking
-            app.MapPost("/create", (Booking newBooking) =>
-            {
-                bookingRepository.AddBooking(newBooking);
-                return "Booking tilføjet!";
-            });
+                endpoints.MapPost("/api/customers", (IBookingRepository bookingRepository, CustomerData customer) =>
+                {
+                    var id = bookingRepository.CreateCustomer(customer.FirstName, customer.LastName, customer.Email);
+                    return Results.Ok(new { CustomerID = id });
+                });
 
-            // ✅ Opdater booking
-            app.MapPut("/update", (Booking updatedBooking) =>
-            {
-                bookingRepository.UpdateBooking(updatedBooking);
-                return "Booking opdateret succesfuldt!";
-            });
+                endpoints.MapPost("/create", (IBookingRepository bookingRepository, Booking newBooking) =>
+                {
+                    bookingRepository.AddBooking(newBooking);
+                    return Results.Ok("Booking tilføjet!");
+                });
 
-            // ✅ Slet booking
-            app.MapDelete("/delete/{id}", (int id) =>
-            {
-                bookingRepository.DeleteBooking(id);
-                return "Booking slettet succesfuldt!";
-            });
+                endpoints.MapPut("/update", (IBookingRepository bookingRepository, Booking updatedBooking) =>
+                {
+                    bookingRepository.UpdateBooking(updatedBooking);
+                    return Results.Ok("Booking opdateret succesfuldt!");
+                });
 
-            // ✅ Send notifikation
-            app.MapPost("/send-notification", (string recipientEmail, string subject, string message) =>
-            {
-                emailService.SendNotification(recipientEmail, subject, message);
-                return "Notifikation sendt!";
-            });
+                endpoints.MapDelete("/delete/{id}", (IBookingRepository bookingRepository, int id) =>
+                {
+                    bookingRepository.DeleteBooking(id);
+                    return Results.Ok("Booking slettet succesfuldt!");
+                });
 
-            // ✅ Generér rapport
-            app.MapGet("/report", () =>
-            {
-                string filePath = "BookingRapport.csv";
-                bookingRepository.GenerateReport(filePath);
-                return $"Rapport genereret: {filePath}";
+                endpoints.MapPost("/send-notification", (EmailService emailService, string recipientEmail, string subject, string message) =>
+                {
+                    emailService.SendNotification(recipientEmail, subject, message);
+                    return Results.Ok("Notifikation sendt!");
+                });
+
+                endpoints.MapGet("/report", (IBookingRepository bookingRepository) =>
+                {
+                    string filePath = "BookingRapport.csv";
+                    bookingRepository.GenerateReport(filePath);
+                    return Results.Ok($"Rapport genereret: {filePath}");
+                });
             });
 
             app.Run();
         }
 
-        // DTO til kunde-oprettelse fra web
         public record CustomerData(string FirstName, string LastName, string Email);
 
+        // --------- Booking funktioner ---------
 
-
-
-        // --------- Booking Funktioner (Samme som tidligere) ---------
         static void CreateBooking(IBookingRepository bookingRepository)
         {
             Console.Write("Indtast ressource: ");
@@ -226,12 +214,11 @@ namespace BookingSystem
             }
             else
             {
-                customerId = int.Parse(customerInput); // Bruger eksisterende ID
+                customerId = int.Parse(customerInput);
             }
 
             var newBooking = new Booking(new Random().Next(1000, 9999), resource, date, customerId);
             bookingRepository.AddBooking(newBooking);
-
             Console.WriteLine("Booking tilføjet!");
         }
 
@@ -246,15 +233,24 @@ namespace BookingSystem
 
         static void SearchBooking(IBookingRepository bookingRepository)
         {
-            Console.Write("Indtast søgeord for ressource: ");
+            Console.Write("Indtast søgeord (ressource, ID eller kunde-ID): ");
             string searchTerm = Console.ReadLine();
 
-            var searchResults = bookingRepository.SearchBookings(searchTerm);
+            var searchResults = bookingRepository.SearchBookings(searchTerm).ToList();
+
+            if (!searchResults.Any())
+            {
+                Console.WriteLine("Ingen bookinger matcher søgeordet. Prøv igen med et andet søgeord.");
+                return;
+            }
+
+            Console.WriteLine("\n=== Søgeresultater ===");
             foreach (var booking in searchResults)
             {
-                Console.WriteLine($"ID: {booking.BookingID} - {booking.Resource} - {booking.Date.ToShortDateString()}");
+                Console.WriteLine($"ID: {booking.BookingID} - {booking.Resource} - {booking.Date.ToShortDateString()} - Kunde ID: {booking.CustomerID}");
             }
         }
+
 
         static void UpdateBooking(IBookingRepository bookingRepository)
         {
@@ -284,10 +280,8 @@ namespace BookingSystem
 
             var updatedBooking = new Booking(bookingID, newResource, newDate, customerID);
             bookingRepository.UpdateBooking(updatedBooking);
-
             Console.WriteLine("Booking opdateret succesfuldt!");
         }
-
 
         static void DeleteBooking(IBookingRepository bookingRepository)
         {
@@ -335,6 +329,7 @@ namespace BookingSystem
                 Console.WriteLine($"ID: {customer.CustomerID} - {customer.FirstName} {customer.LastName} - {customer.Email}");
             }
         }
+
         static void GeneratePdfReport(IBookingRepository bookingRepository)
         {
             Console.Write("Indtast filnavn til rapporten (f.eks. Rapport.pdf): ");
@@ -344,6 +339,5 @@ namespace BookingSystem
 
             bookingRepository.GeneratePdfReport(filePath);
         }
-
     }
 }

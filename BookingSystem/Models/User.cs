@@ -2,7 +2,6 @@
 
 namespace BookingSystem.Models
 {
-    // Abstrakt klasse User
     public abstract class User
     {
         public string FirstName { get; set; }
@@ -16,7 +15,6 @@ namespace BookingSystem.Models
             Email = email;
         }
 
-        // Abstrakt metode som skal implementeres af nedarvede klasser
         public abstract void DisplayInfo();
     }
 }

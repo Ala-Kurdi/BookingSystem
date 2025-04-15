@@ -48,6 +48,11 @@
 
         <div id='calendar' class="mb-5"></div>
 
+        <div class="input-group mb-3">
+            <input type="text" class="form-control" id="searchInput" placeholder="Søg efter booking...">
+            <button class="btn btn-outline-light" onclick="searchBookings()">Søg</button>
+        </div>
+
         <div id="bookingList" class="row"></div>
 
         <hr>
@@ -90,8 +95,10 @@
     </div>
 
     <script>
+        const baseUrl = 'http://localhost:5000';
+
         async function loadBookings() {
-            const response = await fetch('http://localhost:5000/api/bookings');
+            const response = await fetch(`${baseUrl}/api/bookings`);
             const bookings = await response.json();
             const list = document.getElementById('bookingList');
             list.innerHTML = '';
@@ -114,7 +121,7 @@
 
             bookings.forEach(booking => {
                 const card = document.createElement('div');
-                card.className = 'card booking-card col-md-4';
+                card.className = 'card booking-card col-md-4 m-2';
                 card.innerHTML = `
                             <div class="card-body">
                                 <h5 class="card-title">${booking.resource}</h5>
@@ -131,7 +138,7 @@
         }
 
         async function loadCustomers() {
-            const response = await fetch('http://localhost:5000/api/customers');
+            const response = await fetch(`${baseUrl}/api/customers`);
             const customers = await response.json();
             const select = document.getElementById('customerID');
             select.innerHTML = '<option value="">-- Vælg kunde --</option>';
@@ -145,7 +152,7 @@
         }
 
         async function deleteBooking(id) {
-            await fetch(`http://localhost:5000/delete/${id}`, { method: 'DELETE' });
+            await fetch(`${baseUrl}/delete/${id}`, { method: 'DELETE' });
             loadBookings();
         }
 
@@ -158,7 +165,7 @@
                 customerID: parseInt(document.getElementById('customerID').value)
             };
 
-            await fetch('http://localhost:5000/create', {
+            await fetch(`${baseUrl}/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(booking)
@@ -177,7 +184,7 @@
                 email: document.getElementById('email').value
             };
 
-            await fetch('http://localhost:5000/api/customers', {
+            await fetch(`${baseUrl}/api/customers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newCustomer)
@@ -193,3 +200,4 @@
     </script>
 </body>
 </html>
+<script src="script.js"></script>
